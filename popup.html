@@ -1,17 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BlockForFocus</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="app-container">
     <header style="position: relative;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <h1>BlockForFocus</h1>
-        <button id="popout-btn" class="icon-btn" style="width: 32px; height: 32px; font-size: 16px; background: transparent; padding: 0;" title="Pop Out Window">⏏</button>
+        <button id="popout-btn" class="icon-btn"
+          style="width: 32px; height: 32px; font-size: 16px; background: transparent; padding: 0;"
+          title="Pop Out Window">⏏</button>
       </div>
       <nav>
         <button id="nav-timer" class="nav-btn active">Timer</button>
@@ -45,8 +49,10 @@
           <div class="countdown" id="countdown-display">25:00</div>
           <div style="display: flex; gap: 8px; justify-content: center; width: 100%; margin-bottom: 24px;">
             <button id="pause-btn" class="primary-btn" style="flex: 1; min-width: 0; padding: 12px 0;">Pause</button>
-            <button id="resume-btn" class="primary-btn hidden" style="flex: 1; min-width: 0; padding: 12px 0;">Resume</button>
-            <button id="cancel-btn" class="secondary-btn" style="flex: 1; min-width: 0; padding: 12px 0;">Cancel</button>
+            <button id="resume-btn" class="primary-btn hidden"
+              style="flex: 1; min-width: 0; padding: 12px 0;">Resume</button>
+            <button id="cancel-btn" class="secondary-btn"
+              style="flex: 1; min-width: 0; padding: 12px 0;">Cancel</button>
           </div>
         </div>
 
@@ -87,7 +93,8 @@
           <h2>Daily Summary</h2>
           <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
             <span>Last</span>
-            <input type="number" id="stats-days-input" value="7" min="1" max="30" style="width: 40px; background: var(--surface-color); border: 1px solid var(--surface-hover); color: var(--text-main); border-radius: 4px; padding: 4px; text-align: center; outline: none;">
+            <input type="number" id="stats-days-input" value="7" min="1" max="30"
+              style="width: 40px; background: var(--surface-color); border: 1px solid var(--surface-hover); color: var(--text-main); border-radius: 4px; padding: 4px; text-align: center; outline: none;">
             <span>days</span>
           </div>
         </div>
@@ -99,4 +106,5 @@
   </div>
   <script src="popup.js"></script>
 </body>
+
 </html>

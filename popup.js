@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateTimerDisplay(remaining);
         }
       }, 1000);
-      
+
       // Initial update
       updateTimerDisplay(endTime - Date.now());
     }
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sites.forEach((site, index) => {
       const li = document.createElement('li');
       li.textContent = site;
-      
+
       const delBtn = document.createElement('button');
       delBtn.className = 'delete-btn';
       delBtn.innerHTML = '&times;';
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get(['sessions'], (data) => {
       const sessions = data.sessions || [];
       historyItems.innerHTML = '';
-      
+
       if (sessions.length === 0) {
         historyItems.innerHTML = '<li style="justify-content:center; color: var(--text-muted)">No past sessions</li>';
         return;
@@ -284,10 +284,10 @@ document.addEventListener('DOMContentLoaded', () => {
       sessions.slice(0, 10).forEach(session => {
         const li = document.createElement('li');
         li.className = 'history-item';
-        
+
         const startDate = new Date(session.startTime);
         const endDate = new Date(session.endTime);
-        
+
         const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const startTimeStr = startDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         const endTimeStr = endDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -322,13 +322,13 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get(['sessions'], (data) => {
       const sessions = data.sessions || [];
       const daysToLookBack = parseInt(statsDaysInput.value, 10) || 7;
-      
+
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      
+
       const dailyTotals = {};
       const dateStrings = [];
-      
+
       // Initialize the last N days with 0 minutes
       for (let i = 0; i < daysToLookBack; i++) {
         const d = new Date(now.getTime() - (i * 24 * 60 * 60 * 1000));
@@ -341,9 +341,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!session.completed) return; // Only count completed sessions
         const sessionDate = new Date(session.startTime);
         sessionDate.setHours(0, 0, 0, 0);
-        
+
         const diffDays = Math.floor((now - sessionDate) / (24 * 60 * 60 * 1000));
-        
+
         if (diffDays >= 0 && diffDays < daysToLookBack) {
           const dateString = sessionDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
           if (dailyTotals[dateString] !== undefined) {
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalMinutes = dailyTotals[dateStr];
         const li = document.createElement('li');
         li.className = 'history-item';
-        
+
         const totalSecs = Math.round(totalMinutes * 60);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;

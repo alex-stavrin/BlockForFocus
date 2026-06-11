@@ -12,54 +12,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // ALARM CHIME
 // ---------------------------------------------------------
 
-let audioCtx = null;
-let alarmOscillator = null;
-let alarmLfo = null;
-let alarmGain = null;
-
-function getAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioCtx;
-}
+let alarmAudio = null;
 
 function startLoopingAlarm() {
-  if (alarmOscillator) return;
-  const ctx = getAudioCtx();
-  
-  alarmOscillator = ctx.createOscillator();
-  alarmGain = ctx.createGain();
-  
-  alarmOscillator.type = 'sine';
-  alarmOscillator.frequency.setValueAtTime(800, ctx.currentTime);
-  
-  alarmLfo = ctx.createOscillator();
-  alarmLfo.type = 'square';
-  alarmLfo.frequency.setValueAtTime(4, ctx.currentTime);
-  
-  const lfoGain = ctx.createGain();
-  lfoGain.gain.setValueAtTime(0.5, ctx.currentTime);
-  alarmLfo.connect(lfoGain);
-  
-  lfoGain.connect(alarmGain.gain);
-  alarmGain.gain.setValueAtTime(0.5, ctx.currentTime);
-  
-  alarmOscillator.connect(alarmGain);
-  alarmGain.connect(ctx.destination);
-  
-  alarmOscillator.start();
-  alarmLfo.start();
+  if (!alarmAudio) {
+    alarmAudio = new Audio('alarm.mp3');
+    alarmAudio.loop = true;
+  }
+  alarmAudio.play().catch(e => {
+    console.error("Could not play alarm.mp3:", e);
+  });
 }
 
 function stopLoopingAlarm() {
-  if (alarmOscillator) {
-    alarmOscillator.stop();
-    alarmOscillator = null;
+  if (alarmAudio) {
+    alarmAudio.pause();
+    alarmAudio.currentTime = 0;
   }
-  if (alarmLfo) {
-    alarmLfo.stop();
-    alarmLfo = null;
-  }
-  alarmGain = null;
 }
