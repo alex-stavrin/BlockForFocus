@@ -295,15 +295,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusClass = session.completed ? 'status-badge' : 'status-badge cancelled';
         const statusText = session.completed ? 'Completed' : 'Cancelled';
 
-        const durationSecsTotal = Math.round(session.durationMinutes * 60);
+        let durationSecsTotal = Math.round(session.durationMinutes * 60);
+        const isRemoval = durationSecsTotal < 0;
+        durationSecsTotal = Math.abs(durationSecsTotal);
+        
         const mins = Math.floor(durationSecsTotal / 60);
         const secs = durationSecsTotal % 60;
         const durationStr = secs > 0 ? `${mins}m ${secs}s` : `${mins} min`;
+        const displayStr = isRemoval ? `Removed ${durationStr}` : durationStr;
 
         li.innerHTML = `
           <div class="history-date">${dateStr} &bull; ${startTimeStr} - ${endTimeStr}</div>
           <div class="history-details">
-            <span>${durationStr}</span>
+            <span>${displayStr}</span>
             <span class="${statusClass}">${statusText}</span>
           </div>
         `;
@@ -355,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statsItems.innerHTML = '';
 
       dateStrings.forEach(dateStr => {
-        const totalMinutes = dailyTotals[dateStr];
+        const totalMinutes = Math.max(0, dailyTotals[dateStr]);
         const li = document.createElement('li');
         li.className = 'history-item';
 
@@ -377,4 +381,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
   statsDaysInput.addEventListener('change', loadStats);
   loadStats();
+
+  // Manage Time View
+  const addTimeBtn = document.getElementById('add-time-submit-btn');
+  const removeTimeBtn = document.getElementById('remove-time-submit-btn');
+  const manageTimeMin = document.getElementById('manage-time-min');
+  const manageTimeSec = document.getElementById('manage-time-sec');
+
+  function handleManageTime(isAdding) {
+    const minutes = parseInt(manageTimeMin.value, 10) || 0;
+    const seconds = parseInt(manageTimeSec.value, 10) || 0;
+    const totalMinutes = minutes + (seconds / 60);
+
+    if (totalMinutes > 0) {
+      chrome.storage.local.get(['sessions'], (data) => {
+        const now = Date.now();
+        const dummySession = {
+          startTime: now - (totalMinutes * 60 * 1000), // Fake start time in the past
+          endTime: now,
+          durationMinutes: isAdding ? totalMinutes : -totalMinutes,
+          completed: true
+        };
+        const updatedSessions = [dummySession, ...(data.sessions || [])];
+        chrome.storage.local.set({ sessions: updatedSessions }, () => {
+          manageTimeMin.value = '15';
+          manageTimeSec.value = '0';
+          loadHistory();
+          loadStats();
+          // Show toast
+          const actionText = isAdding ? "Added" : "Removed";
+          const timeText = seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes} min`;
+          showToast(`Successfully ${actionText.toLowerCase()} ${timeText}`, isAdding ? 'success' : 'error');
+        });
+      });
+    }
+  }
+
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    // Trigger reflow to ensure the transition plays
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.addEventListener('transitionend', () => {
+        toast.remove();
+      });
+    }, 2500);
+  }
+
+  addTimeBtn.addEventListener('click', () => handleManageTime(true));
+  removeTimeBtn.addEventListener('click', () => handleManageTime(false));
 });

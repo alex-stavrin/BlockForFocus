@@ -48,7 +48,7 @@ h1 {
 
 nav {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   background: var(--surface-color);
   padding: 4px;
   border-radius: 100px;
@@ -59,12 +59,13 @@ nav {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 8px 12px;
+  padding: 6px 4px;
   border-radius: 100px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .nav-btn:hover {
@@ -353,4 +354,41 @@ li {
   display: none !important;
 }
 
+.toast-container {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast.success {
+  background-color: #22c55e;
+}
+
+.toast.error {
+  background-color: #ef4444;
+}
 
