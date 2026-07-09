@@ -88,6 +88,31 @@ async function startSession(durationMinutes, subject) {
   });
 
   await applyBlockingRules();
+  await redirectOpenBlockedTabs();
+}
+
+async function redirectOpenBlockedTabs() {
+  const data = await chrome.storage.local.get(['blockedSites']);
+  const sites = data.blockedSites || [];
+  if (sites.length === 0) return;
+
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (!tab.url) continue;
+    try {
+      const url = new URL(tab.url);
+      if (url.protocol.startsWith('chrome')) continue;
+      
+      const isBlocked = sites.some(site => {
+        const cleanSite = site.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0].trim();
+        return cleanSite && url.hostname.includes(cleanSite);
+      });
+      
+      if (isBlocked) {
+        chrome.tabs.update(tab.id, { url: chrome.runtime.getURL("blocked.html") });
+      }
+    } catch (e) {}
+  }
 }
 
 async function applyBlockingRules() {
@@ -186,13 +211,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   } else if (request.action === 'resumeSession') {
-    chrome.storage.local.get(['activeSession'], (data) => {
+    chrome.storage.local.get(['activeSession'], async (data) => {
       if (data.activeSession && data.activeSession.isPaused) {
         data.activeSession.isPaused = false;
         data.activeSession.endTime = Date.now() + data.activeSession.remainingMs;
         chrome.storage.local.set({ activeSession: data.activeSession });
         chrome.alarms.create(ALARM_NAME, { delayInMinutes: data.activeSession.remainingMs / 60000 });
-        applyBlockingRules();
+        await applyBlockingRules();
+        await redirectOpenBlockedTabs();
       }
       sendResponse({ success: true });
     });
