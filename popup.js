@@ -383,7 +383,23 @@ document.addEventListener('DOMContentLoaded', () => {
     blocklistItems.innerHTML = '';
     sites.forEach((site, index) => {
       const li = document.createElement('li');
-      li.textContent = site;
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.style.display = 'flex';
+      contentDiv.style.alignItems = 'center';
+      contentDiv.style.gap = '10px';
+
+      const img = document.createElement('img');
+      img.src = `https://www.google.com/s2/favicons?domain=${site}&sz=32`;
+      img.style.width = '18px';
+      img.style.height = '18px';
+      img.style.borderRadius = '4px';
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = site;
+
+      contentDiv.appendChild(img);
+      contentDiv.appendChild(textSpan);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'delete-btn';
@@ -396,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       };
 
+      li.appendChild(contentDiv);
       li.appendChild(delBtn);
       blocklistItems.appendChild(li);
     });
@@ -411,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.storage.local.get(['blockedSites'], (data) => {
         const sites = data.blockedSites || [];
         if (!sites.includes(site)) {
-          sites.push(site);
+          sites.unshift(site);
           chrome.storage.local.set({ blockedSites: sites }, () => {
             renderBlocklist(sites);
             newSiteInput.value = '';
@@ -469,16 +486,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let subjectStr = '';
         if (session.subject) {
           if (typeof session.subject === 'string') {
-            subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 4px;"></span>${session.subject}`;
+            subjectStr = `<span style="margin: 0 6px;">&bull;</span><span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 6px;"></span>${session.subject}`;
           } else if (session.subject.name) {
-            subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: ${session.subject.color}; width: 8px; height: 8px; margin-right: 4px;"></span>${session.subject.name}`;
+            subjectStr = `<span style="margin: 0 6px;">&bull;</span><span class="subject-color-badge" style="background-color: ${session.subject.color}; width: 8px; height: 8px; margin-right: 6px;"></span>${session.subject.name}`;
           }
         } else {
-          subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 4px;"></span>Uncategorized`;
+          subjectStr = `<span style="margin: 0 6px;">&bull;</span><span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 6px;"></span>Uncategorized`;
         }
 
         li.innerHTML = `
-          <div class="history-date">${dateStr} &bull; ${startTimeStr} - ${endTimeStr}${subjectStr}</div>
+          <div class="history-date">${dateStr} <span style="margin: 0 4px;">&bull;</span> ${startTimeStr} - ${endTimeStr}${subjectStr}</div>
           <div class="history-details">
             <span>${displayStr}</span>
             <span class="${statusClass}">${statusText}</span>
@@ -622,4 +639,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   addTimeBtn.addEventListener('click', () => handleManageTime(true));
   removeTimeBtn.addEventListener('click', () => handleManageTime(false));
+
+  // Enter key support for inputs
+  const addEnterListener = (input, button) => {
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        button.click();
+      }
+    });
+  };
+
+  addEnterListener(newSiteInput, addSiteBtn);
+  addEnterListener(newSubjectInput, addSubjectBtn);
+  addEnterListener(durationMin, startBtn);
+  addEnterListener(durationSec, startBtn);
+  addEnterListener(manageTimeMin, addTimeBtn);
+  addEnterListener(manageTimeSec, addTimeBtn);
+
+  statsDaysInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      statsDaysInput.blur();
+      loadStats();
+    }
+  });
 });
