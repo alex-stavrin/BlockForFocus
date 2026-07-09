@@ -59,6 +59,155 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.defaultSec !== undefined) durationSec.value = data.defaultSec.toString().padStart(2, '0');
   });
 
+  // Subjects Setup
+  const subjectSelect = document.getElementById('subject-select');
+  const manageSubjectSelect = document.getElementById('manage-subject-select');
+  const subjectItemsList = document.getElementById('subject-items-list');
+  const manageSubjectItemsList = document.getElementById('manage-subject-items-list');
+  const subjectSelected = document.querySelector('#subject-custom-select .select-selected');
+  const manageSubjectSelected = document.querySelector('#manage-subject-custom-select .select-selected');
+  
+  const subjectItems = document.getElementById('subject-items');
+  const newSubjectInput = document.getElementById('new-subject-input');
+  const addSubjectBtn = document.getElementById('add-subject-btn');
+  const activeSubject = document.getElementById('active-subject');
+
+  const newSubjectColor = document.getElementById('new-subject-color');
+
+  // Custom select toggle events
+  subjectSelected.addEventListener('click', function(e) {
+    e.stopPropagation();
+    closeAllSelect(this);
+    this.nextElementSibling.classList.toggle('select-hide');
+    this.classList.toggle('select-arrow-active');
+  });
+
+  manageSubjectSelected.addEventListener('click', function(e) {
+    e.stopPropagation();
+    closeAllSelect(this);
+    this.nextElementSibling.classList.toggle('select-hide');
+    this.classList.toggle('select-arrow-active');
+  });
+
+  function closeAllSelect(elmnt) {
+    const x = document.getElementsByClassName("select-items");
+    const y = document.getElementsByClassName("select-selected");
+    for (let i = 0; i < y.length; i++) {
+      if (elmnt !== y[i]) {
+        y[i].classList.remove("select-arrow-active");
+      }
+    }
+    for (let i = 0; i < x.length; i++) {
+      if (elmnt && elmnt.nextElementSibling === x[i]) continue;
+      x[i].classList.add("select-hide");
+    }
+  }
+
+  document.addEventListener("click", closeAllSelect);
+
+  function renderSubjects(subjects) {
+    subjectItemsList.innerHTML = '';
+    manageSubjectItemsList.innerHTML = '';
+    subjectItems.innerHTML = '';
+    
+    if (!subjects || subjects.length === 0) {
+      const div1 = document.createElement('div');
+      div1.textContent = "No subjects made";
+      div1.className = "disabled";
+      subjectItemsList.appendChild(div1);
+
+      const div2 = document.createElement('div');
+      div2.textContent = "No subjects made";
+      div2.className = "disabled";
+      manageSubjectItemsList.appendChild(div2);
+
+      subjectItems.innerHTML = '<li style="justify-content:center; color: var(--text-muted)">No subjects created</li>';
+      return;
+    }
+
+    subjects.forEach(subject => {
+      const subjectJson = JSON.stringify(subject);
+      const badgeHtml = `<span class="subject-color-badge" style="background-color: ${subject.color}"></span>`;
+
+      // Setup dropdown 1
+      const div1 = document.createElement('div');
+      div1.innerHTML = `${badgeHtml}${subject.name}`;
+      div1.addEventListener('click', () => {
+        subjectSelected.innerHTML = `${badgeHtml}${subject.name}`;
+        subjectSelect.value = subjectJson;
+        subjectItemsList.classList.add('select-hide');
+        subjectSelected.classList.remove('select-arrow-active');
+      });
+      subjectItemsList.appendChild(div1);
+
+      // Setup dropdown 2
+      const div2 = document.createElement('div');
+      div2.innerHTML = `${badgeHtml}${subject.name}`;
+      div2.addEventListener('click', () => {
+        manageSubjectSelected.innerHTML = `${badgeHtml}${subject.name}`;
+        manageSubjectSelect.value = subjectJson;
+        manageSubjectItemsList.classList.add('select-hide');
+        manageSubjectSelected.classList.remove('select-arrow-active');
+      });
+      manageSubjectItemsList.appendChild(div2);
+    });
+
+    subjects.forEach((subject, index) => {
+      const li = document.createElement('li');
+      const badgeHtml = `<span class="subject-color-badge" style="background-color: ${subject.color}"></span>`;
+      li.innerHTML = `<div>${badgeHtml}${subject.name}</div>`;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-btn';
+      delBtn.innerHTML = '&times;';
+      delBtn.onclick = () => {
+        const newSubjects = [...subjects];
+        newSubjects.splice(index, 1);
+        chrome.storage.local.set({ subjects: newSubjects }, () => {
+          renderSubjects(newSubjects);
+          if (subjectSelect.value === JSON.stringify(subject)) {
+            subjectSelect.value = "Uncategorized";
+            subjectSelected.textContent = "Uncategorized";
+          }
+          if (manageSubjectSelect.value === JSON.stringify(subject)) {
+            manageSubjectSelect.value = "Uncategorized";
+            manageSubjectSelected.textContent = "Uncategorized";
+          }
+        });
+      };
+
+      li.appendChild(delBtn);
+      subjectItems.appendChild(li);
+    });
+  }
+
+  chrome.storage.local.get(['subjects'], (data) => {
+    let subjects = data.subjects || [];
+    // Migration from strings to objects
+    if (subjects.length > 0 && typeof subjects[0] === 'string') {
+      subjects = subjects.map(name => ({ name, color: '#8b5cf6' }));
+      chrome.storage.local.set({ subjects });
+    }
+    renderSubjects(subjects);
+  });
+
+  addSubjectBtn.addEventListener('click', () => {
+    const name = newSubjectInput.value.trim();
+    const color = newSubjectColor.value;
+    if (name) {
+      chrome.storage.local.get(['subjects'], (data) => {
+        const subjects = data.subjects || [];
+        if (!subjects.find(s => s.name === name)) {
+          subjects.push({ name, color });
+          chrome.storage.local.set({ subjects: subjects }, () => {
+            renderSubjects(subjects);
+            newSubjectInput.value = '';
+          });
+        }
+      });
+    }
+  });
+
   durationMin.addEventListener('blur', () => {
     if (durationMin.value) {
       durationMin.value = durationMin.value.padStart(2, '0');
@@ -97,10 +246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     countdownDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
-  function startTimerUI(endTime, isPaused, remainingMs) {
+  function startTimerUI(endTime, isPaused, remainingMs, subject) {
     setupState.classList.add('hidden');
     finishedState.classList.add('hidden');
     activeState.classList.remove('hidden');
+    
+    if (subject && subject.name !== 'Uncategorized') {
+      activeSubject.innerHTML = `<span class="subject-color-badge" style="background-color: ${subject.color}"></span>${subject.name}`;
+    } else {
+      activeSubject.textContent = 'Uncategorized';
+    }
 
     if (timerInterval) clearInterval(timerInterval);
 
@@ -156,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showFinishedUI();
     } else if (response && response.activeSession) {
       const session = response.activeSession;
-      startTimerUI(session.endTime, session.isPaused, session.remainingMs);
+      startTimerUI(session.endTime, session.isPaused, session.remainingMs, session.subject);
     } else {
       showSetupUI();
     }
@@ -168,10 +323,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalMinutes = minutes + (seconds / 60);
 
     if (totalMinutes <= 0) return;
+    
+    let subject = { name: 'Uncategorized', color: '#94a3b8' };
+    try {
+      if (subjectSelect.value !== 'Uncategorized') {
+        subject = JSON.parse(subjectSelect.value);
+      }
+    } catch(e) {}
 
-    chrome.runtime.sendMessage({ action: 'startSession', durationMinutes: totalMinutes }, (response) => {
+    chrome.runtime.sendMessage({ action: 'startSession', durationMinutes: totalMinutes, subject: subject }, (response) => {
       if (response && response.success) {
-        startTimerUI(Date.now() + totalMinutes * 60 * 1000, false, null);
+        startTimerUI(Date.now() + totalMinutes * 60 * 1000, false, null, subject);
       }
     });
   });
@@ -180,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'pauseSession' }, () => {
       chrome.runtime.sendMessage({ action: 'getSession' }, (res) => {
         if (res && res.activeSession) {
-          startTimerUI(res.activeSession.endTime, res.activeSession.isPaused, res.activeSession.remainingMs);
+          startTimerUI(res.activeSession.endTime, res.activeSession.isPaused, res.activeSession.remainingMs, res.activeSession.subject);
         }
       });
     });
@@ -190,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'resumeSession' }, () => {
       chrome.runtime.sendMessage({ action: 'getSession' }, (res) => {
         if (res && res.activeSession) {
-          startTimerUI(res.activeSession.endTime, res.activeSession.isPaused, res.activeSession.remainingMs);
+          startTimerUI(res.activeSession.endTime, res.activeSession.isPaused, res.activeSession.remainingMs, res.activeSession.subject);
         }
       });
     });
@@ -303,9 +465,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const secs = durationSecsTotal % 60;
         const durationStr = secs > 0 ? `${mins}m ${secs}s` : `${mins} min`;
         const displayStr = isRemoval ? `Removed ${durationStr}` : durationStr;
+        
+        let subjectStr = '';
+        if (session.subject) {
+          if (typeof session.subject === 'string') {
+            subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 4px;"></span>${session.subject}`;
+          } else if (session.subject.name) {
+            subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: ${session.subject.color}; width: 8px; height: 8px; margin-right: 4px;"></span>${session.subject.name}`;
+          }
+        } else {
+          subjectStr = ` &bull; <span class="subject-color-badge" style="background-color: #94a3b8; width: 8px; height: 8px; margin-right: 4px;"></span>Uncategorized`;
+        }
 
         li.innerHTML = `
-          <div class="history-date">${dateStr} &bull; ${startTimeStr} - ${endTimeStr}</div>
+          <div class="history-date">${dateStr} &bull; ${startTimeStr} - ${endTimeStr}${subjectStr}</div>
           <div class="history-details">
             <span>${displayStr}</span>
             <span class="${statusClass}">${statusText}</span>
@@ -392,6 +565,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const minutes = parseInt(manageTimeMin.value, 10) || 0;
     const seconds = parseInt(manageTimeSec.value, 10) || 0;
     const totalMinutes = minutes + (seconds / 60);
+    
+    let subject = { name: 'Uncategorized', color: '#94a3b8' };
+    try {
+      if (manageSubjectSelect.value !== 'Uncategorized') {
+        subject = JSON.parse(manageSubjectSelect.value);
+      }
+    } catch(e) {}
 
     if (totalMinutes > 0) {
       chrome.storage.local.get(['sessions'], (data) => {
@@ -400,7 +580,8 @@ document.addEventListener('DOMContentLoaded', () => {
           startTime: now - (totalMinutes * 60 * 1000), // Fake start time in the past
           endTime: now,
           durationMinutes: isAdding ? totalMinutes : -totalMinutes,
-          completed: true
+          completed: true,
+          subject: subject
         };
         const updatedSessions = [dummySession, ...(data.sessions || [])];
         chrome.storage.local.set({ sessions: updatedSessions }, () => {

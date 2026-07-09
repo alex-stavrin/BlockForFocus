@@ -2,12 +2,20 @@ const ALARM_NAME = "studyTimer";
 
 chrome.runtime.onInstalled.addListener(() => {
   // Initialize default storage
-  chrome.storage.local.get(['blockedSites', 'sessions'], (data) => {
+  chrome.storage.local.get(['blockedSites', 'sessions', 'subjects'], (data) => {
     if (!data.blockedSites) {
       chrome.storage.local.set({ blockedSites: ['discord.com', 'spotify.com', 'twitter.com', 'x.com'] });
     }
     if (!data.sessions) {
       chrome.storage.local.set({ sessions: [] });
+    }
+    if (!data.subjects) {
+      chrome.storage.local.set({ subjects: [
+        { name: 'Study', color: '#3b82f6' },
+        { name: 'Work', color: '#ef4444' },
+        { name: 'Coding', color: '#10b981' },
+        { name: 'Reading', color: '#f59e0b' }
+      ]});
     }
   });
 });
@@ -27,7 +35,8 @@ function endSession(completed) {
         startTime: data.activeSession.startTime,
         endTime: endTime,
         durationMinutes: data.activeSession.durationMinutes,
-        completed: completed
+        completed: completed,
+        subject: data.activeSession.subject || { name: 'Uncategorized', color: '#94a3b8' }
       };
       
       const updatedSessions = [session, ...(data.sessions || [])];
@@ -61,7 +70,7 @@ function endSession(completed) {
   });
 }
 
-async function startSession(durationMinutes) {
+async function startSession(durationMinutes, subject) {
   const startTime = Date.now();
   const endTime = startTime + (durationMinutes * 60 * 1000);
   chrome.storage.local.set({
@@ -69,7 +78,8 @@ async function startSession(durationMinutes) {
       startTime,
       durationMinutes,
       endTime,
-      isPaused: false
+      isPaused: false,
+      subject: subject || { name: 'Uncategorized', color: '#94a3b8' }
     }
   });
 
@@ -157,7 +167,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // Message passing
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startSession') {
-    startSession(request.durationMinutes).then(() => sendResponse({ success: true }));
+    startSession(request.durationMinutes, request.subject).then(() => sendResponse({ success: true }));
     return true; // async
   } else if (request.action === 'endSession') {
     endSession(false);
