@@ -50,7 +50,8 @@ body {
 }
 
 .icon {
-  font-size: 64px;
+  width: 64px;
+  height: 64px;
   margin-bottom: 24px;
   animation: pulse 2s infinite;
 }
