@@ -17,6 +17,7 @@
   },
   "permissions": [
     "storage",
+    "activeTab",
     "alarms",
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",

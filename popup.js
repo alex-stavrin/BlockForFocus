@@ -74,6 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const newSubjectColor = document.getElementById('new-subject-color');
 
+  function selectSessionSubject(subject) {
+    if (!subject || subject.name === 'Uncategorized') {
+      subjectSelect.value = 'Uncategorized';
+      subjectSelected.textContent = 'Uncategorized';
+      return;
+    }
+
+    const badgeHtml = `<span class="subject-color-badge" style="background-color: ${subject.color}"></span>`;
+    subjectSelect.value = JSON.stringify(subject);
+    subjectSelected.innerHTML = `${badgeHtml}${subject.name}`;
+  }
+
   // Custom select toggle events
   subjectSelected.addEventListener('click', function(e) {
     e.stopPropagation();
@@ -133,8 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const div1 = document.createElement('div');
       div1.innerHTML = `${badgeHtml}${subject.name}`;
       div1.addEventListener('click', () => {
-        subjectSelected.innerHTML = `${badgeHtml}${subject.name}`;
-        subjectSelect.value = subjectJson;
+        selectSessionSubject(subject);
+        chrome.storage.local.set({ lastSelectedSubject: subject });
         subjectItemsList.classList.add('select-hide');
         subjectSelected.classList.remove('select-arrow-active');
       });
@@ -166,8 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.set({ subjects: newSubjects }, () => {
           renderSubjects(newSubjects);
           if (subjectSelect.value === JSON.stringify(subject)) {
-            subjectSelect.value = "Uncategorized";
-            subjectSelected.textContent = "Uncategorized";
+            selectSessionSubject(null);
+            chrome.storage.local.set({ lastSelectedSubject: null });
           }
           if (manageSubjectSelect.value === JSON.stringify(subject)) {
             manageSubjectSelect.value = "Uncategorized";
@@ -181,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  chrome.storage.local.get(['subjects'], (data) => {
+  chrome.storage.local.get(['subjects', 'lastSelectedSubject'], (data) => {
     let subjects = data.subjects || [];
     // Migration from strings to objects
     if (subjects.length > 0 && typeof subjects[0] === 'string') {
@@ -189,6 +201,16 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.storage.local.set({ subjects });
     }
     renderSubjects(subjects);
+
+    const lastSubjectName = typeof data.lastSelectedSubject === 'string'
+      ? data.lastSelectedSubject
+      : data.lastSelectedSubject && data.lastSelectedSubject.name;
+    const lastSelectedSubject = subjects.find(subject => subject.name === lastSubjectName);
+    selectSessionSubject(lastSelectedSubject);
+
+    if (data.lastSelectedSubject && !lastSelectedSubject) {
+      chrome.storage.local.set({ lastSelectedSubject: null });
+    }
   });
 
   addSubjectBtn.addEventListener('click', () => {
@@ -331,6 +353,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch(e) {}
 
+    chrome.storage.local.set({
+      lastSelectedSubject: subject.name === 'Uncategorized' ? null : subject
+    });
+
     chrome.runtime.sendMessage({ action: 'startSession', durationMinutes: totalMinutes, subject: subject }, (response) => {
       if (response && response.success) {
         startTimerUI(Date.now() + totalMinutes * 60 * 1000, false, null, subject);
@@ -378,6 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const blocklistItems = document.getElementById('blocklist-items');
   const newSiteInput = document.getElementById('new-site-input');
   const addSiteBtn = document.getElementById('add-site-btn');
+  const addCurrentTabBtn = document.getElementById('add-current-tab-btn');
 
   function renderBlocklist(sites) {
     blocklistItems.innerHTML = '';
@@ -422,20 +449,60 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBlocklist(data.blockedSites || []);
   });
 
+  function addBlockedSite(site, onAdded) {
+    if (!site) return;
+
+    chrome.storage.local.get(['blockedSites'], (data) => {
+      const sites = data.blockedSites || [];
+      if (sites.includes(site)) {
+        showToast(`${site} is already blocked`, 'error');
+        return;
+      }
+
+      const newSites = [site, ...sites];
+      chrome.storage.local.set({ blockedSites: newSites }, () => {
+        renderBlocklist(newSites);
+        if (onAdded) onAdded();
+      });
+    });
+  }
+
   addSiteBtn.addEventListener('click', () => {
     const site = newSiteInput.value.trim().toLowerCase();
-    if (site) {
-      chrome.storage.local.get(['blockedSites'], (data) => {
-        const sites = data.blockedSites || [];
-        if (!sites.includes(site)) {
-          sites.unshift(site);
-          chrome.storage.local.set({ blockedSites: sites }, () => {
-            renderBlocklist(sites);
-            newSiteInput.value = '';
+    addBlockedSite(site, () => {
+      newSiteInput.value = '';
+    });
+  });
+
+  addCurrentTabBtn.addEventListener('click', () => {
+    chrome.windows.getLastFocused({ windowTypes: ['normal'] }, (browserWindow) => {
+      if (chrome.runtime.lastError || !browserWindow) {
+        showToast('Could not find the current browser tab', 'error');
+        return;
+      }
+
+      chrome.tabs.query({ active: true, windowId: browserWindow.id }, (tabs) => {
+        if (chrome.runtime.lastError || !tabs[0] || !tabs[0].url) {
+          showToast('Could not read the current tab', 'error');
+          return;
+        }
+
+        try {
+          const url = new URL(tabs[0].url);
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            showToast('This type of page cannot be blocked', 'error');
+            return;
+          }
+
+          const site = url.hostname.toLowerCase().replace(/^www\./, '');
+          addBlockedSite(site, () => {
+            showToast(`Added ${site} to the blocklist`);
           });
+        } catch (error) {
+          showToast('Could not read the current tab address', 'error');
         }
       });
-    }
+    });
   });
 
   // History
@@ -460,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      sessions.slice(0, 10).forEach(session => {
+      sessions.slice(0, 10).forEach((session, sessionIndex) => {
         const li = document.createElement('li');
         li.className = 'history-item';
 
@@ -498,9 +565,28 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="history-date">${dateStr} <span style="margin: 0 4px;">&bull;</span> ${startTimeStr} - ${endTimeStr}${subjectStr}</div>
           <div class="history-details">
             <span>${displayStr}</span>
-            <span class="${statusClass}">${statusText}</span>
+            <div class="history-actions">
+              <span class="${statusClass}">${statusText}</span>
+            </div>
           </div>
         `;
+
+        const deleteSessionBtn = document.createElement('button');
+        deleteSessionBtn.className = 'history-delete-btn';
+        deleteSessionBtn.type = 'button';
+        deleteSessionBtn.title = 'Delete session';
+        deleteSessionBtn.setAttribute('aria-label', `Delete session from ${dateStr}`);
+        deleteSessionBtn.innerHTML = '&times;';
+        deleteSessionBtn.addEventListener('click', () => {
+          const updatedSessions = sessions.filter((_, index) => index !== sessionIndex);
+          chrome.storage.local.set({ sessions: updatedSessions }, () => {
+            loadHistory();
+            loadStats();
+            showToast('Session deleted');
+          });
+        });
+
+        li.querySelector('.history-actions').appendChild(deleteSessionBtn);
         historyItems.appendChild(li);
       });
     });
@@ -512,60 +598,179 @@ document.addEventListener('DOMContentLoaded', () => {
   const statsItems = document.getElementById('stats-items');
   const statsDaysInput = document.getElementById('stats-days-input');
 
+  function getLocalDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatStatsDuration(totalMinutes) {
+    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (totalSeconds === 0) return '0 min';
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes} min`;
+  }
+
+  function getSessionSubject(subject) {
+    if (typeof subject === 'string') {
+      return { name: subject || 'Uncategorized', color: '#94a3b8' };
+    }
+
+    const color = subject && /^#[0-9a-f]{6}$/i.test(subject.color)
+      ? subject.color
+      : '#94a3b8';
+    return {
+      name: subject && subject.name ? subject.name : 'Uncategorized',
+      color
+    };
+  }
+
+  function createStatsDay(day) {
+    const totalMinutes = Math.max(0, day.totalMinutes);
+    const subjectTotals = Object.values(day.subjects)
+      .map(subject => ({ ...subject, minutes: Math.max(0, subject.minutes) }))
+      .filter(subject => subject.minutes > 0)
+      .sort((a, b) => b.minutes - a.minutes);
+    const chartTotal = subjectTotals.reduce((total, subject) => total + subject.minutes, 0);
+
+    const li = document.createElement('li');
+    li.className = 'stats-day-item';
+
+    const summary = document.createElement('button');
+    summary.className = 'stats-day-summary';
+    summary.type = 'button';
+    summary.setAttribute('aria-expanded', 'false');
+
+    const dateLabel = document.createElement('span');
+    dateLabel.textContent = day.label;
+
+    const summaryRight = document.createElement('span');
+    summaryRight.className = 'stats-day-summary-right';
+
+    const duration = document.createElement('span');
+    duration.className = 'stats-day-duration';
+    duration.textContent = formatStatsDuration(totalMinutes);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'stats-day-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = '›';
+
+    summaryRight.appendChild(duration);
+    summaryRight.appendChild(chevron);
+    summary.appendChild(dateLabel);
+    summary.appendChild(summaryRight);
+
+    const details = document.createElement('div');
+    details.className = 'stats-day-details';
+    details.hidden = true;
+
+    if (subjectTotals.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'stats-day-empty';
+      empty.textContent = 'No completed study sessions';
+      details.appendChild(empty);
+    } else {
+      let progress = 0;
+      const segments = subjectTotals.map(subject => {
+        const start = progress;
+        progress += (subject.minutes / chartTotal) * 100;
+        return `${subject.color} ${start}% ${progress}%`;
+      });
+
+      const pie = document.createElement('div');
+      pie.className = 'stats-pie-chart';
+      pie.style.background = `conic-gradient(${segments.join(', ')})`;
+      pie.setAttribute('role', 'img');
+      pie.setAttribute('aria-label', `Study time by subject for ${day.label}`);
+
+      const legend = document.createElement('div');
+      legend.className = 'stats-subject-legend';
+
+      subjectTotals.forEach(subject => {
+        const row = document.createElement('div');
+        row.className = 'stats-subject-row';
+
+        const subjectLabel = document.createElement('span');
+        subjectLabel.className = 'stats-subject-label';
+
+        const dot = document.createElement('span');
+        dot.className = 'stats-subject-dot';
+        dot.style.backgroundColor = subject.color;
+
+        const name = document.createElement('span');
+        name.className = 'stats-subject-name';
+        name.textContent = subject.name;
+
+        const subjectDuration = document.createElement('span');
+        subjectDuration.className = 'stats-subject-duration';
+        const percentage = Math.round((subject.minutes / chartTotal) * 100);
+        subjectDuration.textContent = `${formatStatsDuration(subject.minutes)} · ${percentage}%`;
+
+        subjectLabel.appendChild(dot);
+        subjectLabel.appendChild(name);
+        row.appendChild(subjectLabel);
+        row.appendChild(subjectDuration);
+        legend.appendChild(row);
+      });
+
+      details.appendChild(pie);
+      details.appendChild(legend);
+    }
+
+    summary.addEventListener('click', () => {
+      const isExpanded = summary.getAttribute('aria-expanded') === 'true';
+      summary.setAttribute('aria-expanded', String(!isExpanded));
+      details.hidden = isExpanded;
+      li.classList.toggle('expanded', !isExpanded);
+    });
+
+    li.appendChild(summary);
+    li.appendChild(details);
+    return li;
+  }
+
   function loadStats() {
     chrome.storage.local.get(['sessions'], (data) => {
       const sessions = data.sessions || [];
-      const daysToLookBack = parseInt(statsDaysInput.value, 10) || 7;
+      const daysToLookBack = Math.min(30, Math.max(1, parseInt(statsDaysInput.value, 10) || 7));
 
       const now = new Date();
       now.setHours(0, 0, 0, 0);
 
-      const dailyTotals = {};
-      const dateStrings = [];
+      const days = [];
+      const daysByKey = {};
 
-      // Initialize the last N days with 0 minutes
       for (let i = 0; i < daysToLookBack; i++) {
-        const d = new Date(now.getTime() - (i * 24 * 60 * 60 * 1000));
-        const dateString = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        dailyTotals[dateString] = 0;
-        dateStrings.push(dateString);
+        const date = new Date(now);
+        date.setDate(now.getDate() - i);
+        const day = {
+          label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          totalMinutes: 0,
+          subjects: {}
+        };
+        days.push(day);
+        daysByKey[getLocalDateKey(date)] = day;
       }
 
       sessions.forEach(session => {
-        if (!session.completed) return; // Only count completed sessions
+        if (!session.completed || !Number.isFinite(session.durationMinutes)) return;
         const sessionDate = new Date(session.startTime);
-        sessionDate.setHours(0, 0, 0, 0);
+        const day = daysByKey[getLocalDateKey(sessionDate)];
+        if (!day) return;
 
-        const diffDays = Math.floor((now - sessionDate) / (24 * 60 * 60 * 1000));
-
-        if (diffDays >= 0 && diffDays < daysToLookBack) {
-          const dateString = sessionDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          if (dailyTotals[dateString] !== undefined) {
-            dailyTotals[dateString] += session.durationMinutes;
-          }
+        const subject = getSessionSubject(session.subject);
+        day.totalMinutes += session.durationMinutes;
+        if (!day.subjects[subject.name]) {
+          day.subjects[subject.name] = { ...subject, minutes: 0 };
         }
+        day.subjects[subject.name].minutes += session.durationMinutes;
       });
 
       statsItems.innerHTML = '';
-
-      dateStrings.forEach(dateStr => {
-        const totalMinutes = Math.max(0, dailyTotals[dateStr]);
-        const li = document.createElement('li');
-        li.className = 'history-item';
-
-        const totalSecs = Math.round(totalMinutes * 60);
-        const mins = Math.floor(totalSecs / 60);
-        const secs = totalSecs % 60;
-        const durationStr = totalMinutes === 0 ? "0 min" : (secs > 0 ? `${mins}m ${secs}s` : `${mins} min`);
-
-        li.innerHTML = `
-          <div class="history-details" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <span>${dateStr}</span>
-            <span style="color: var(--primary-color); font-weight: 700;">${durationStr}</span>
-          </div>
-        `;
-        statsItems.appendChild(li);
-      });
+      days.forEach(day => statsItems.appendChild(createStatsDay(day)));
     });
   }
 

@@ -227,6 +227,25 @@ button {
   border-color: var(--primary-color);
 }
 
+.current-tab-btn {
+  width: 100%;
+  margin: -4px 0 16px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--surface-hover);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.current-tab-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary-color);
+}
+
 .color-picker {
   width: 40px;
   height: 40px;
@@ -407,9 +426,39 @@ li {
 
 .history-details {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
   font-weight: 500;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--danger-hover);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.history-delete-btn:hover,
+.history-delete-btn:focus-visible {
+  background: rgba(239, 68, 68, 0.15);
+  outline: none;
 }
 
 .status-badge {
@@ -434,6 +483,139 @@ li {
 
 .history-header h2 {
   margin: 0;
+}
+
+#stats-items {
+  max-height: 350px;
+}
+
+.stats-day-item {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.stats-day-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: 0;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stats-day-summary:hover {
+  background: var(--surface-hover);
+}
+
+.stats-day-summary:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.stats-day-summary-right,
+.stats-subject-label {
+  display: flex;
+  align-items: center;
+}
+
+.stats-day-summary-right {
+  gap: 10px;
+}
+
+.stats-day-duration,
+.stats-subject-duration {
+  color: var(--primary-hover);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.stats-day-chevron {
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+
+.stats-day-item.expanded .stats-day-chevron {
+  transform: rotate(-90deg);
+}
+
+.stats-day-details {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  border-top: 1px solid var(--surface-hover);
+  box-sizing: border-box;
+}
+
+.stats-day-details[hidden] {
+  display: none;
+}
+
+.stats-pie-chart {
+  width: 82px;
+  height: 82px;
+  flex: 0 0 82px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+.stats-subject-legend {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stats-subject-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.stats-subject-label {
+  gap: 6px;
+  min-width: 0;
+}
+
+.stats-subject-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+.stats-subject-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-subject-duration {
+  font-size: 11px;
+}
+
+.stats-day-empty {
+  width: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .text-danger-btn {
